@@ -1,0 +1,99 @@
+with most_used_tv as
+(Select *  
+  From (Select user_pseudo_id,user_type, tv_brand,tv_operating_system,usage_count, row_number() over(partition by user_pseudo_id order by usage_count desc) as tv_rank
+From
+(Select distinct user_pseudo_id,user_type, tv_brand , tv_operating_system , count(*) as usage_count
+From `bi_event_ga_id.event_with_tv_theme_user_type`
+where upper(tv_brand) <> 'NO DATA'
+group by 1,2,3,4
+)
+) where tv_rank = 1
+)
+,all_info as(
+  Select distinct user_pseudo_id,user_type, tv_brand, tv_operating_system
+From (Select distinct user_pseudo_id from `bi_event_ga_id.event_with_tv_theme_user_type`)
+left join most_used_tv using(user_pseudo_id))
+,
+  other_details AS (
+  SELECT
+    user_pseudo_id,
+    country,
+    version,
+    operating_system_version,
+    mobile_model_name
+  FROM
+    `bi_event_ga_id.event_with_tv_theme_user_type`,
+    UNNEST(event_params) AS param
+  JOIN (
+    SELECT
+      user_pseudo_id,
+      MAX(event_timestamp) AS event_timestamp
+    FROM
+      `bi_event_ga_id.event_with_tv_theme_user_type`
+    GROUP BY
+      1)
+  USING
+    (user_pseudo_id,
+      event_timestamp)
+  GROUP BY
+    1,
+    2,
+    3,
+    4,
+    5 ),
+  first_day AS (
+  SELECT
+    DISTINCT user_pseudo_id,
+    TIMESTAMP_MICROS(b.user_first_touch_timestamp) AS first_open_date,
+    geo.country,
+    device.mobile_model_name,
+    TIMESTAMP_MICROS(event_timestamp) as last_online_timestamp
+  FROM
+  (Select user_pseudo_id , max(event_timestamp) as event_timestamp from  `analytics_332888339.events_*`
+   group by 1 )
+  left join 
+    `analytics_332888339.events_*` using(user_pseudo_id, event_timestamp)
+  left join 
+(SELECT distinct user_pseudo_id, user_first_touch_timestamp
+FROM `analytics_332888339.events_*`
+where user_first_touch_timestamp is not null) b
+using (user_pseudo_id)
+    ) 
+,allow_status as
+(select user_pseudo_id, 
+max(if(event_name = 'allow_tracking_ob',status, null)) as allow_tracking,
+max(if(event_name = 'allow_local_network_ob',status, null)) as allow_network,
+max(if(event_name = 'allow_notif_ob',status, null)) as allow_notification
+from(
+select user_pseudo_id, event_name, 
+case when status = 1 then 'ALLOW'
+ELSE 'NOT ALLOW' end as status
+from
+(select distinct user_pseudo_id,event_name
+,max(if(upper(param.key) like 'ALLOW%STATUS', param.value.int_value,null)) as status
+from `bi_event_ga_id.event_with_tv_theme_user_type` ,unnest(event_params) as param
+where event_name in ('allow_tracking_ob', 'allow_local_network_ob', 'allow_notif_ob') 
+group by 1,2))
+group by 1)
+
+SELECT
+  DISTINCT user_pseudo_id,user_type,first_open_date, date_diff(current_date(),date(last_online_timestamp),day) as inactive_day_count,
+  case when tv_brand is not null then tv_brand else "NO DATA" end AS top_used_brand_of_user,tv_operating_system,
+  country,
+  version,
+  operating_system_version,
+  mobile_model_name,
+  allow_tracking,
+  allow_network,
+  allow_notification,
+  last_online_timestamp
+FROM
+  all_info
+LEFT JOIN
+  other_details
+USING
+  (user_pseudo_id)
+LEFT JOIN first_day 
+Using(user_pseudo_id,country,mobile_model_name)
+LEFT JOIN allow_status
+using(user_pseudo_id)
