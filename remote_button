@@ -1,0 +1,10 @@
+Select event_date, event_name,user_pseudo_id,user_type, ga_session_id, tv_brand, tv_operating_system,tv_connect_status,tv_control_status,theme_name, count(*) as event_count, sum(time_spend_by_second) as total_time
+From
+
+(Select event_date,event_name, user_pseudo_id,user_type, ga_session_id,tv_brand, tv_operating_system,time_spend_by_second,
+      (Select case param.value.int_value when 1 then "TRUE" when 0 then 'FALSE' else null end from unnest(event_params) as param where upper(param.key) like 'TV%CONNECT%STATUS') as tv_connect_status,
+      (Select case param.value.int_value when 1 then "TRUE" when 0 then 'FALSE' else null end from unnest(event_params) as param where upper(param.key) like 'TV%CONTROL%STATUS') as tv_control_status,
+      (Select upper(param.value.string_value) from unnest(event_params) as param where upper(param.key) like 'THEME%NAME') as theme_name
+from `bi_event_ga_id.event_with_tv_theme_user_type`
+where event_name like '%_ctrl')
+group by 1,2,3,4,5,6,7,8,9,10
