@@ -1,0 +1,16 @@
+with retention as (Select distinct user_pseudo_id, event_date, country, version, tv_brand,mobile_model_name, operating_system_version, user_type
+From `bi_event_ga_id.event_with_tv_theme_user_type` where user_type is not null and is_active_user is true)
+
+Select a.event_date, a.country, a.version, a.tv_brand,a.mobile_model_name,a.user_type, a.operating_system_version, abs(date_diff(b.event_date, a.event_date,day)) as RR, count(distinct a.user_pseudo_id) as retention_user
+from retention a
+left join retention b
+on a.user_pseudo_id= b.user_pseudo_id
+and a.event_date <= b.event_date
+and a.country = b.country
+and a.version = b.version
+and a.tv_brand= b.tv_brand
+and a.user_type= b.user_type
+and a.mobile_model_name = b.mobile_model_name
+and a.operating_system_version = b.operating_system_version
+
+group by 1,2,3,4,5,6,7,b.event_date
