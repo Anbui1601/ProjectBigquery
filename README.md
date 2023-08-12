@@ -11,4 +11,6 @@ Project: Google Bigquery [App performance]
    - phân tích chuyên sâu về hành vi remote(tính năng chính của remote)
 5.[ retetion_rate]:
   - tính tỉ lệ quay lại sử dụng app qua các ngày
-     
+6.  [dictionary_tv]
+    - làm từ điển phân loại các hãng tivi cùng các hệ điều hành trên thế giới
+        
