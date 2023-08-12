@@ -1,0 +1,118 @@
+with original as (
+            Select user_pseudo_id, event_date,event_name,event_timestamp,
+            max(if( param.key = 'CONNECT_BY_MODEL_NAME',param.value.string_value,null)) as CONNECT_BY_MODEL_NAME,
+            max(if( param.key = 'TRACK_BY_DEVICE_FULL_INFO',param.value.string_value,null)) as TRACK_BY_DEVICE_FULL_INFO,
+            max(if( param.key = 'CONNECT_BY_FRIENDLY_NAME',param.value.string_value,null)) as CONNECT_BY_FRIENDLY_NAME,
+            max(if( param.key = 'CONNECT_BY_SERVICE',param.value.string_value,null)) as CONNECT_BY_SERVICE,
+            
+      From `analytics_332888339.events_*`,unnest(event_params) as param
+      --chỉnh thời gian
+      where _TABLE_SUFFIX BETWEEN 
+    FORMAT_DATE("%Y%m%d", DATE_SUB(CURRENT_DATE(), INTERVAL 5 DAY)) AND
+    FORMAT_DATE("%Y%m%d", DATE_SUB(CURRENT_DATE(), INTERVAL 1 DAY))
+and event_name not in ('session_start','screen_view','user_engagement','wifi_connected_device_load_success','wifi_connected_device_load_fail','scanned_tv_device','scanned_supported_tv','scanned_unsupported_tv','payment_subcription_success','payment_subcription_fail','show_rating_screen','Event_User_Return_Non_Purchaser','connection_click_cannot_find_my_tv','will_show_splash','firebase_campaign','notification_open','splash_shown','show_splash_screen_ob','splash_need_continue','splash_need_show_list_device')
+ and event_name not like '%onboarding%' and event_name not like '%splash%' and event_name not like 'home_control%'and event_name not like 'payment_success%'and event_name not like 'payment_fail%'
+ and event_name not like 'home_menu%' and event_name not like 'home_click%'and event_name not like 'searching_%' and event_name not like 'list_device%'and event_name not like 'inapp5%'
+ and event_name not like '%update'and event_name not like 'session_nummber%'and event_name not like 'home_custom%'and event_name not like 'home_app%'and event_name not like 'home_contact%' and event_name not like 'home_cast%'
+   group by 1,2,3,4   
+    
+ )
+,brand as(
+  Select *,
+      Case when upper(CONNECT_BY_FRIENDLY_NAME) like '%SAMSUNG%' or upper(CONNECT_BY_MODEL_NAME) like '%SAMSUNG%'  THEN 'SAMSUNG'
+      when upper(CONNECT_BY_MODEL_NAME) in( 'AFTMM','AFTSSS') or upper(CONNECT_BY_FRIENDLY_NAME) like 'AFT%' OR upper(CONNECT_BY_MODEL_NAME) like "NS-%" Then 'FIRE TV'
+      WHEN upper(CONNECT_BY_FRIENDLY_NAME) like '%FIRE%TV%' or upper(CONNECT_BY_MODEL_NAME) like '%FIRE%TV%'or upper(CONNECT_BY_SERVICE) like '%FIRETV%'
+            or upper(CONNECT_BY_MODEL_NAME) like 'NS-___________' Then 'FIRE TV'
+      WHEN upper(CONNECT_BY_SERVICE) like '%ROKU%' or upper(CONNECT_BY_MODEL_NAME) like '%X' Then 'ROKU'
+          WHEN upper(CONNECT_BY_FRIENDLY_NAME) like '%LG%'  or upper(CONNECT_BY_FRIENDLY_NAME) like '%WEBOS%' or upper(CONNECT_BY_MODEL_NAME) like '%UK%' or upper(CONNECT_BY_MODEL_NAME) like '%UF%'
+            or upper(CONNECT_BY_MODEL_NAME) like '%LG%' OR UPPER(CONNECT_BY_SERVICE) like "%WEBOS%" or upper(CONNECT_BY_MODEL_NAME) like '__UP____UA'or upper(CONNECT_BY_MODEL_NAME) like '%LM%' or upper(CONNECT_BY_MODEL_NAME) like '%UM%' Then 'LG'
+          WHEN upper(CONNECT_BY_FRIENDLY_NAME) like '%TOSHIBA%' or upper(CONNECT_BY_MODEL_NAME) like '%TOSHIBA%' or upper(CONNECT_BY_MODEL_NAME) like '%LF%' Then 'TOSHIBA'
+          WHEN upper(CONNECT_BY_FRIENDLY_NAME) like '%GOOGLE%' or upper(CONNECT_BY_MODEL_NAME) like '%GOOGLE%' or upper(CONNECT_BY_SERVICE) like '%GOOGLE%' or upper(CONNECT_BY_MODEL_NAME) like 'EUREKA%'Then 'GOOGLE' 
+          WHEN upper(CONNECT_BY_FRIENDLY_NAME) like '%HITACHI%' or upper(CONNECT_BY_MODEL_NAME) like '%HITACHI%'  Then 'HITACHI'
+          WHEN upper(CONNECT_BY_FRIENDLY_NAME) like '%TCL%' or upper(CONNECT_BY_MODEL_NAME) like '%TCL%' or upper(CONNECT_BY_MODEL_NAME) like '%KU' or upper(CONNECT_BY_MODEL_NAME) like 'LE-%' Then 'TCL'
+          WHEN upper(CONNECT_BY_FRIENDLY_NAME) like '%SONY%' or upper(CONNECT_BY_MODEL_NAME) like '%SONY%'  Then 'SONY'
+          WHEN upper(CONNECT_BY_FRIENDLY_NAME) like '%VIZIO%' or upper(CONNECT_BY_MODEL_NAME) like '%VIZIO%' or upper(CONNECT_BY_MODEL_NAME) like 'V___-J__' or upper(CONNECT_BY_MODEL_NAME) like 'PX%'  Then 'VIZIO'
+          WHEN upper(CONNECT_BY_FRIENDLY_NAME) like '%SHARP%' or upper(CONNECT_BY_MODEL_NAME) like '%SHARP%'  Then 'SHARP'
+          WHEN upper(CONNECT_BY_FRIENDLY_NAME) like '%AQUOS-%' or upper(CONNECT_BY_MODEL_NAME) like '%AQUOS%' or upper(CONNECT_BY_MODEL_NAME) like 'LTDN%' OR upper(CONNECT_BY_MODEL_NAME) like 'LC-%' Then 'SHARP'
+          
+          WHEN upper(CONNECT_BY_FRIENDLY_NAME) like '%PHILIPS%' or upper(CONNECT_BY_MODEL_NAME) like '%PHILIPS%' or upper(CONNECT_BY_MODEL_NAME) like '%PFD%'or upper(CONNECT_BY_MODEL_NAME) like '%PUD%' OR upper(CONNECT_BY_MODEL_NAME) like '%PHD%'  Then 'PHILIPS'
+          WHEN upper(CONNECT_BY_FRIENDLY_NAME) like '%HISENSE%' or upper(CONNECT_BY_MODEL_NAME) like '%HISENSE%' or upper(CONNECT_BY_MODEL_NAME) like 'HE%' or upper(CONNECT_BY_MODEL_NAME) in ('65A5FX','55U7H') Then 'HISENSE'
+          WHEN upper(CONNECT_BY_FRIENDLY_NAME) like '%HISMART%' or upper(CONNECT_BY_MODEL_NAME) like '%HISMART%' or upper(CONNECT_BY_MODEL_NAME) like 'HU%' Then 'HISENSE'
+          WHEN upper(CONNECT_BY_FRIENDLY_NAME) like '%BRAVIA%' or upper(CONNECT_BY_MODEL_NAME) like '%BRAVIA%' Then 'SONY'
+          WHEN upper(CONNECT_BY_FRIENDLY_NAME) like '%BDP-%' or upper(CONNECT_BY_MODEL_NAME) like '%BDP-%' Then 'SONY'
+          WHEN upper(CONNECT_BY_FRIENDLY_NAME) like '%XBR-%' or upper(CONNECT_BY_MODEL_NAME) like '%XBR-%' or upper(CONNECT_BY_MODEL_NAME) like '%EA' Then 'SONY'
+          WHEN upper(CONNECT_BY_FRIENDLY_NAME) like '%KDL-%' or upper(CONNECT_BY_MODEL_NAME) like '%KDL-%' or upper(CONNECT_BY_MODEL_NAME) like '%XR-%' Then 'SONY'
+          WHEN upper(CONNECT_BY_FRIENDLY_NAME) like '%KD-%' or upper(CONNECT_BY_MODEL_NAME) like '%KD-%'  Then 'SONY'
+          WHEN upper(CONNECT_BY_FRIENDLY_NAME) like '%KJ-%' or upper(CONNECT_BY_MODEL_NAME) like '%KJ-%'Then 'SONY'
+          WHEN upper(CONNECT_BY_FRIENDLY_NAME) like '%HT-%' or upper(CONNECT_BY_MODEL_NAME) like '%HT-%'  Then 'SONY'
+          WHEN upper(CONNECT_BY_FRIENDLY_NAME) like '%PANASONIC%'  or upper(CONNECT_BY_MODEL_NAME) like '%PANASONIC%'  Then 'PANASONIC'
+          When upper(CONNECT_BY_MODEL_NAME) like '____X'or upper(CONNECT_BY_MODEL_NAME) like 'LTDN%' or upper(CONNECT_BY_MODEL_NAME) like 'EX%'or upper(CONNECT_BY_MODEL_NAME) like 'KB%' Then 'TCL'
+          WHEN upper(CONNECT_BY_FRIENDLY_NAME) like '%ROKU%' or upper(CONNECT_BY_MODEL_NAME) like '%ROKU%'  Then 'ROKU'
+          WHEN upper(CONNECT_BY_FRIENDLY_NAME) like '%XBOX%' or upper(CONNECT_BY_MODEL_NAME) like '%XBOX%'  Then 'XBOX'
+          WHEN upper(CONNECT_BY_FRIENDLY_NAME) like '%MI_TV%' or upper(CONNECT_BY_MODEL_NAME) like '%MI_TV%' Then 'XIAOMI TV'
+          WHEN upper(CONNECT_BY_FRIENDLY_NAME) like '%MITV%' or upper(CONNECT_BY_MODEL_NAME) like '%MITV%' Then 'XIAOMI TV'
+          WHEN upper(CONNECT_BY_FRIENDLY_NAME) like '%STICK%' or upper(CONNECT_BY_MODEL_NAME) like '%STICK%' or upper(CONNECT_BY_MODEL_NAME) like '%RW%' Then 'ROKU'
+          WHEN upper(CONNECT_BY_FRIENDLY_NAME) like '%EXPRESS%' or upper(CONNECT_BY_MODEL_NAME) like '%EXPRESS%'  Then 'ROKU'
+          WHEN upper(CONNECT_BY_FRIENDLY_NAME) like '%CHROMECAST%' or upper(CONNECT_BY_MODEL_NAME) like '%CHROMECAST%' or upper(CONNECT_BY_MODEL_NAME) like '%WINDOWS%' or upper(CONNECT_BY_SERVICE) like '%CHROMECAST%'   Then 'CHROMECAST'  
+          WHEN upper(CONNECT_BY_FRIENDLY_NAME) like '%ANDROID%' or upper(CONNECT_BY_MODEL_NAME) like '%ANDROID%' or upper(CONNECT_BY_SERVICE) like '%ANDROID%'  Then 'ANDROID TV' 
+          WHEN upper(CONNECT_BY_FRIENDLY_NAME) like '%BUSH%' or upper(CONNECT_BY_MODEL_NAME) like '%BUSH%' or upper(CONNECT_BY_SERVICE) like '%BUSH%'or upper(CONNECT_BY_MODEL_NAME) like 'OTT%' OR
+          upper(CONNECT_BY_MODEL_NAME) like 'TIMVISIONBOX%' Then 'ANDROID TV'
+        
+          WHEN upper(CONNECT_BY_MODEL_NAME) like 'UN%' or upper(CONNECT_BY_MODEL_NAME) like 'UE%' or upper(CONNECT_BY_MODEL_NAME) like 'QN%' or 
+               upper(CONNECT_BY_MODEL_NAME) like 'UA%' or upper(CONNECT_BY_MODEL_NAME) like 'QE%' or upper(CONNECT_BY_MODEL_NAME) like 'GU%' or upper(CONNECT_BY_MODEL_NAME) like 'QA%' THEN 'SAMSUNG'  
+          WHEN upper(CONNECT_BY_FRIENDLY_NAME) like 'Samsung'  or upper(CONNECT_BY_MODEL_NAME) like 'LT%'or upper(CONNECT_BY_MODEL_NAME) like 'HG%' THEN 'SAMSUNG'
+          when upper(CONNECT_BY_MODEL_NAME) like '[TV]P_______' or upper(CONNECT_BY_MODEL_NAME) like "%BD_F%" Then 'SAMSUNG'
+          WHEN upper(CONNECT_BY_FRIENDLY_NAME) like '[TV] U%' or upper(CONNECT_BY_MODEL_NAME) like 'PN%' THEN 'SAMSUNG'
+          when upper(CONNECT_BY_MODEL_NAME) like '%TIVO%' or upper(CONNECT_BY_FRIENDLY_NAME) like '%TIVO%' Then 'TIVO STREAM'
+          WHEN upper(CONNECT_BY_MODEL_NAME) like '%AIPLUS4K%' or upper(CONNECT_BY_FRIENDLY_NAME) like '%AIPLUS4K%' THEN 'CAIXUN'
+          WHEN upper(CONNECT_BY_FRIENDLY_NAME) is null and upper(CONNECT_BY_MODEL_NAME) is null Then "No Data"
+          WHEN upper(CONNECT_BY_FRIENDLY_NAME) like "%FRAME%TV%" or upper(CONNECT_BY_MODEL_NAME) like "%FRAME%TV%" then "SAMSUNG"
+          When upper(CONNECT_BY_FRIENDLY_NAME) like "%SMART%MONITOR%" or upper(CONNECT_BY_MODEL_NAME) like '%LS__BM%' then "SAMSUNG"
+          WHEN upper(CONNECT_BY_FRIENDLY_NAME) like "%VIDAA%" or upper(CONNECT_BY_MODEL_NAME) like "%VIDAA%" or upper(CONNECT_BY_MODEL_NAME) in ('50C350LS') then "VIDAA"
+          WHEN upper(CONNECT_BY_FRIENDLY_NAME) like "%SWTV-%" or upper(CONNECT_BY_MODEL_NAME) like "%SWTV-%" or upper(CONNECT_BY_MODEL_NAME) like "SKYWORTH%"then "SKYWORTH TV"
+         
+          WHEN upper(CONNECT_BY_MODEL_NAME) like "HA%" OR upper(CONNECT_BY_MODEL_NAME) like "HX%"then "HAIER"
+          WHEN upper(CONNECT_BY_FRIENDLY_NAME) like '%PHILCO%' or upper(CONNECT_BY_MODEL_NAME) like '%PHILCO%' OR upper(CONNECT_BY_MODEL_NAME) like "PTV%" then 'PHILCO'
+          WHEN upper(CONNECT_BY_MODEL_NAME) like "MG%" then "MAGNAVOX"
+          WHEN upper(CONNECT_BY_MODEL_NAME) like "%VESTEL%" then " VESTEL"
+          WHEN upper(CONNECT_BY_FRIENDLY_NAME) like '%METZ%' or upper(CONNECT_BY_MODEL_NAME) like '%METZ%' then 'METZ'
+          WHEN upper(CONNECT_BY_FRIENDLY_NAME) like '%WESTINGHOUSE%' or upper(CONNECT_BY_MODEL_NAME) like '%WESTINGHOUSE%'or upper(CONNECT_BY_MODEL_NAME) like 'WD%' then 'WESTINGHOUSE'
+          
+          WHEN upper(CONNECT_BY_MODEL_NAME) like "%MV%" OR upper(CONNECT_BY_MODEL_NAME) like "MAGNAVOX%" then "MAGNAVOX"
+          WHEN upper(CONNECT_BY_MODEL_NAME) like "DG%" then "DYNEX"
+          WHEN upper(CONNECT_BY_MODEL_NAME) like "SANYO%" then "SANYO"
+
+
+          WHEN upper(CONNECT_BY_MODEL_NAME) like "SCXI%" OR upper(CONNECT_BY_MODEL_NAME) like "SAGEMCOM%" OR upper(CONNECT_BY_MODEL_NAME) like "PS%" OR upper(CONNECT_BY_MODEL_NAME) like "CINEMATE%" OR upper(CONNECT_BY_MODEL_NAME) like "SONOS%" OR upper(CONNECT_BY_MODEL_NAME) like "%SOUND%"then "NOT TV"
+          WHEN upper(CONNECT_BY_MODEL_NAME) like "RX-%"  OR upper(CONNECT_BY_MODEL_NAME) like "%FREEBOX%" OR upper(CONNECT_BY_MODEL_NAME) like "%DENON%" then "NOT TV"
+
+
+          else 'NOT SET' end as tv_brand,
+      
+from original
+)
+,tv_os as
+(Select user_pseudo_id,event_date,event_name, TRACK_BY_DEVICE_FULL_INFO,CONNECT_BY_MODEL_NAME,CONNECT_BY_FRIENDLY_NAME,CONNECT_BY_SERVICE,tv_brand,
+        CASE when tv_brand = 'SAMSUNG' then 'TIZEN OS' 
+        when tv_brand = 'VIZIO' then 'SMARTCAST'
+        when tv_brand = 'ROKU' then 'ROKU'
+        when tv_brand = 'GOOGLE' then 'GOOGLE TV'
+        when tv_brand = 'VIDAA' or upper(CONNECT_BY_SERVICE) like '%VIDAA%' then 'VIDAA'
+        when upper(TRACK_BY_DEVICE_FULL_INFO) like 'Android, Chromecast%' then 'ANDROID'
+        WHEN upper(CONNECT_BY_SERVICE) like '%WEBOS%' then 'WEBOS'
+        WHEN upper(CONNECT_BY_SERVICE) like '%ANDROID%' or tv_brand in ('ANDROID TV','SKYWORTH TV') then 'ANDROID'
+        when upper(CONNECT_BY_SERVICE) like '%ROKU%' or upper(CONNECT_BY_FRIENDLY_NAME) like '%ROKU%' then 'ROKU'
+
+        when tv_brand = 'CHROMECAST' or upper(CONNECT_BY_SERVICE) like '%CHROMECAST%' or upper(CONNECT_BY_SERVICE) like '%KDL-%' then 'CHROMECAST'
+        when tv_brand = 'FIRE TV' then 'FIRE TV'
+        when tv_brand = 'LG' then 'WEBOS'
+     
+        when tv_brand = 'No Data' then "No Data"
+        else 'NOT SET' end as tv_operating_system,
+
+From brand)
+Select event_date,user_pseudo_id, tv_brand,upper(CONNECT_BY_MODEL_NAME) as model_name,tv_operating_system
+From tv_os
+
+
+
