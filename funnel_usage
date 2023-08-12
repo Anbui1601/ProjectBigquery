@@ -1,0 +1,81 @@
+with original as (
+            Select event_date,event_name, user_pseudo_id,event_timestamp,app_info.version,geo.country,
+            max(if( param.key = 'POSITION', param.value.string_value,null)) as position_iap,
+          
+
+            max(if(event_name like '%_ctrl' and param.key = 'TV_CONTROL_STATUS', param.value.int_value,null)) as tv_ctrl_status,
+
+      
+            max(if(upper(param.key) ='USER_TYPE',param.value.string_value,null)) as user_type,
+
+            max(if(param.key = 'ga_session_id',param.value.int_value,null)) as ga_session_id,
+          
+            
+      From `analytics_332888339.events_*`,unnest(event_params) as param
+      --chỉnh thời gian
+--       where _TABLE_SUFFIX BETWEEN 
+--     FORMAT_DATE("%Y%m%d", DATE_SUB(CURRENT_DATE(), INTERVAL 3 DAY)) AND
+--     FORMAT_DATE("%Y%m%d", DATE_SUB(CURRENT_DATE(), INTERVAL 1 DAY))
+where event_name not in ('session_start','screen_view','user_engagement','wifi_connected_device_load_success','wifi_connected_device_load_fail','scanned_tv_device','scanned_supported_tv','scanned_unsupported_tv','payment_subcription_success','payment_subcription_fail','show_rating_screen','Event_User_Return_Non_Purchaser','connection_click_cannot_find_my_tv','will_show_splash','firebase_campaign','notification_open','splash_shown','show_splash_screen_ob','splash_need_continue','splash_need_show_list_device')
+ and event_name not like '%onboarding%' and event_name not like '%splash%' and event_name not like 'home_control%'and event_name not like 'payment_success%'and event_name not like 'payment_fail%'
+ and event_name not like 'home_menu%' and event_name not like 'home_click%'and event_name not like 'searching_%' and event_name not like 'list_device%'and event_name not like 'inapp5%'
+ and event_name not like '%update'and event_name not like 'session_nummber%'and event_name not like 'home_custom%'and event_name not like 'home_app%'and event_name not like 'home_contact%' and event_name not like 'home_cast%'
+      group by 1,2,3,4,5,6
+      order by event_timestamp
+ )
+,funnel as
+(Select  parse_date("%Y%m%d",event_date) as event_date,timestamp_micros(event_timestamp) as event_timestamp,event_name,user_pseudo_id,user_type,position_iap,tv_ctrl_status,ga_session_id,version,country,
+  ROW_NUMBER() OVER (PARTITION BY user_pseudo_id, ga_session_id ORDER BY event_timestamp) AS event_number,    
+case  when event_name = 'open_first' or event_name = 'first_open' then 'First_Open'
+            when event_name like '%_cast' or event_name like 'music_event%' or event_name like 'photo_event%' or event_name like 'video_event%' then 'Cast'
+		when event_name like '%_ctrl' or event_name like 'home_control%' then 'Remote'
+		when event_name like '%_ob' then 'Onboarding'
+		when event_name like '%_iap' or event_name ='in_app_purchase' or event_name like 'payment%' then 'IAP'
+
+          
+		when event_name like '%_theme%' or event_name like '%theme%' then 'Theme'
+		when event_name like '%_cn%' or event_name like 'connection%' or event_name like 'list_device%' or event_name like 'refresh_list%' or event_name like 'wifi%' then 'Connection'
+		when event_name like '%_ha%'  then 'Home App'
+		when event_name like '%_cs%' or event_name like 'home_contact%' or event_name like 'home_menu_support%' then 'Contact&Support'
+            when event_name like '%_app' then 'App Channel'
+            when event_name like '%rating%' then 'Rating'
+            when event_name like '%iaa%' then 'IAA'
+            else 'Not Set' end as event_funnel,
+
+From original
+order by user_pseudo_id desc, event_timestamp
+)
+,real as(
+Select *, ROW_NUMBER() OVER (PARTITION BY user_pseudo_id, event_funnel, ga_session_id ORDER BY event_timestamp) AS event_sequence,
+ #ROW_NUMBER() OVER (PARTITION BY user_pseudo_id, ga_session_id ORDER BY event_timestamp) AS event_number,
+Lead(event_number) OVER (PARTITION BY user_pseudo_id,ga_session_id,event_funnel ORDER BY event_timestamp)-event_number AS bxa
+From funnel
+#where user_pseudo_id in (select user_pseudo_id from funnel where event_funnel='First Open')
+where ga_session_id is not null
+group by user_pseudo_id,event_funnel,ga_session_id,event_date,country,version,ga_session_id,user_type,event_timestamp,event_name,position_iap,tv_ctrl_status,event_number
+order by user_pseudo_id,ga_session_id,event_timestamp
+),
+final1 as(
+select distinct event_date,user_pseudo_id,ga_session_id,version,country,event_funnel, event_number,bxa,
+TIMESTAMP_DIFF(Lead(event_timestamp) OVER (PARTITION BY user_pseudo_id,ga_session_id,event_funnel,bxa ORDER BY event_timestamp),event_timestamp, SECOND) AS time_difference_seconds,
+case when event_name='open_first' or event_name='first_open' then ' Open_first'
+     when event_name like '%_ob' then 'Onboarding'
+     when position_iap like 'position_show_inapp_intro%' then 'IAP_intro'
+     when event_name='connection_open_view' then 'Connect screen'
+     when event_name='connection_event_success' then 'Connect success'
+     when tv_ctrl_status= 1 then 'Control success'
+     when event_funnel= 'Remote' and event_sequence>= 8 then 'Control success'
+end as funnel,
+case when ga_session_id in (select ga_session_id from funnel where event_funnel='First_Open') and user_pseudo_id in(select user_pseudo_id from funnel where event_funnel='First_Open') 
+and event_date in(select event_date from funnel where event_funnel='First_Open') then True
+else False
+end as is_firstopen
+from real
+
+order by event_date, user_pseudo_id,ga_session_id,event_number
+)
+select event_date,user_pseudo_id,ga_session_id,event_funnel,funnel,is_firstopen,sum(time_difference_seconds) as time_by_second
+from final1
+
+group by event_date,user_pseudo_id,ga_session_id,event_funnel,funnel,is_firstopen
+order by user_pseudo_id,ga_session_id,event_funnel
